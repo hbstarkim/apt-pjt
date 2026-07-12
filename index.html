@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>아파트 평면도 비교 · 가구 배치 시뮬레이터</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- 상단 바 -->
+  <header id="topbar">
+    <div class="brand">
+      <span class="logo">🏠</span>
+      <span>아파트 평면도 비교 · 가구 배치 시뮬레이터</span>
+    </div>
+    <div class="top-actions">
+      <label class="unit-pick">
+        단위
+        <select id="unitSelect">
+          <option value="mm">mm</option>
+          <option value="cm">cm</option>
+          <option value="m">m</option>
+        </select>
+      </label>
+      <button id="btnCompare" class="btn primary">📐 방 비교 (방 2개 선택)</button>
+      <button id="btnSwap" class="btn" title="현재 집(A)과 이사갈 집(B)의 내용(배경·방·가구)을 맞바꿉니다">🔄 A↔B 맞바꾸기</button>
+      <button id="btnPng" class="btn">🖼 PNG</button>
+      <button id="btnPdf" class="btn">📄 PDF</button>
+      <button id="btnSave" class="btn">💾 저장</button>
+      <button id="btnExport" class="btn" title="현재 작업을 JSON 파일로 저장">⬇ JSON 저장</button>
+      <button id="btnImport" class="btn" title="저장해 둔 JSON 프로젝트 불러오기 (이미지 아님)">⬆ JSON 열기</button>
+      <button id="btnReset" class="btn danger">초기화</button>
+      <input type="file" id="importFile" accept="application/json" hidden />
+    </div>
+  </header>
+
+  <div id="main">
+    <!-- 좌측 사이드바: 가구 라이브러리 -->
+    <aside id="sidebar">
+      <div class="panel">
+        <h2>가구 라이브러리</h2>
+        <p class="hint">한 번 등록한 가구는 <b>영구 저장</b>되어 다음에도 그대로 사용됩니다(초기화·다른 파일 불러오기에도 유지). 목록의 가구를 <b>도면 위로 드래그 앤 드롭</b>하면 그 자리에 배치되며, →A·→B 버튼으로도 추가할 수 있습니다.</p>
+        <div class="form-row">
+          <input id="fName" type="text" placeholder="이름 (예: 침대)" />
+        </div>
+        <div class="form-row two">
+          <input id="fW" type="number" min="1" placeholder="가로" />
+          <input id="fD" type="number" min="1" placeholder="세로" />
+          <input id="fH" type="number" min="1" placeholder="높이" title="3D 보기에서 사용하는 높이입니다. 비워 두면 이름으로 추정합니다." />
+          <span id="fUnitLbl" class="unit-suffix">mm</span>
+        </div>
+        <div class="form-row two">
+          <input id="fColor" type="color" value="#7c9cff" />
+          <button id="btnAddFurniture" class="btn primary full">+ 가구 등록</button>
+        </div>
+        <div id="furnitureList" class="furniture-list"></div>
+      </div>
+
+      <div class="panel">
+        <h2>도움말</h2>
+        <ul class="help">
+          <li><b>방 추가</b>: 각 도면 툴바의 "+ 방"으로 가로·세로를 입력합니다.</li>
+          <li><b>가구 배치</b>: 좌측 가구를 도면으로 <b>드래그 앤 드롭</b> 하거나 →A·→B 버튼을 누릅니다.</li>
+          <li><b>이동</b>: 도형을 드래그합니다.</li>
+          <li><b>다중 선택</b>: <b>Shift+클릭</b>으로 여러 개를 함께 선택하고, 그중 하나를 드래그하면 함께 이동합니다.</li>
+          <li><b>3D 보기</b>: 도면 툴바의 "🧊 3D"를 누르면 1인칭 시점으로 공간을 둘러볼 수 있습니다. 화면 클릭 후 <b>마우스</b>로 시점, <b>W/A/S/D</b>로 이동합니다.</li>
+          <li><b>A↔B 맞바꾸기</b>: 상단 버튼으로 두 집의 내용을 통째로 교환합니다(이름은 유지).</li>
+          <li><b>회전</b>: 선택 후 상단 회전 핸들을 돌립니다(90° 자동 스냅, 자유 회전 가능).</li>
+          <li><b>크기조절</b>: 방은 모서리 핸들로 조절됩니다(가구는 실제 치수 고정).</li>
+          <li><b>사진 도면</b>: 도면 툴바의 "📷 도면사진"으로 이미지를 올린 뒤 "축척보정"으로 실제 길이를 맞추면 그 위에 방을 따라 그릴 수 있습니다. (상단 "JSON 열기"는 이미지가 아니라 저장본 복원용입니다.)</li>
+          <li><b>삭제</b>: 선택 후 Delete 키 또는 속성창의 삭제 버튼.</li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- 두 도면 영역 -->
+    <section id="plans">
+      <!-- 도면 A -->
+      <div class="plan-col" data-plan="A">
+        <div class="plan-toolbar">
+          <input class="plan-name" data-plan="A" value="현재 집 (A)" />
+          <div class="tb-actions">
+            <button class="btn sm addRoom" data-plan="A">+ 방</button>
+            <button class="btn sm addFurnBtn" data-plan="A">+ 가구</button>
+            <label class="btn sm filelbl" title="평면도 사진(이미지) 업로드">📷 도면사진<input type="file" class="bgFile" data-plan="A" accept="image/*" hidden /></label>
+            <button class="btn sm calib" data-plan="A">축척보정</button>
+            <button class="btn sm zoomOut" data-plan="A">−</button>
+            <button class="btn sm zoomIn" data-plan="A">+</button>
+            <button class="btn sm matchScale" data-plan="A" title="이 도면(왼쪽)의 축척을 오른쪽 도면과 동일하게 맞춥니다">⇄ 오른쪽에 축척맞춤</button>
+            <button class="btn sm grid" data-plan="A">격자</button>
+            <button class="btn sm view3d" data-plan="A" title="1인칭 시점(W/A/S/D + 마우스)으로 공간을 둘러봅니다">🧊 3D</button>
+          </div>
+          <div class="plan-meta" data-plan="A"></div>
+        </div>
+        <div class="stage-wrap">
+          <div id="stageA" class="stage"></div>
+          <div class="bg-controls" data-plan="A" hidden>
+            배경 투명도 <input type="range" class="bgOpacity" data-plan="A" min="0" max="100" value="55" />
+            <button class="btn sm ocrBtn" data-plan="A">🔎 수치 OCR</button>
+            <button class="btn sm bgRemove" data-plan="A">배경 제거</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- 도면 B -->
+      <div class="plan-col" data-plan="B">
+        <div class="plan-toolbar">
+          <input class="plan-name" data-plan="B" value="이사갈 집 (B)" />
+          <div class="tb-actions">
+            <button class="btn sm addRoom" data-plan="B">+ 방</button>
+            <button class="btn sm addFurnBtn" data-plan="B">+ 가구</button>
+            <label class="btn sm filelbl" title="평면도 사진(이미지) 업로드">📷 도면사진<input type="file" class="bgFile" data-plan="B" accept="image/*" hidden /></label>
+            <button class="btn sm calib" data-plan="B">축척보정</button>
+            <button class="btn sm zoomOut" data-plan="B">−</button>
+            <button class="btn sm zoomIn" data-plan="B">+</button>
+            <button class="btn sm matchScale" data-plan="B" title="이 도면(오른쪽)의 축척을 왼쪽 도면과 동일하게 맞춥니다">⇄ 왼쪽에 축척맞춤</button>
+            <button class="btn sm grid" data-plan="B">격자</button>
+            <button class="btn sm view3d" data-plan="B" title="1인칭 시점(W/A/S/D + 마우스)으로 공간을 둘러봅니다">🧊 3D</button>
+          </div>
+          <div class="plan-meta" data-plan="B"></div>
+        </div>
+        <div class="stage-wrap">
+          <div id="stageB" class="stage"></div>
+          <div class="bg-controls" data-plan="B" hidden>
+            배경 투명도 <input type="range" class="bgOpacity" data-plan="B" min="0" max="100" value="55" />
+            <button class="btn sm ocrBtn" data-plan="B">🔎 수치 OCR</button>
+            <button class="btn sm bgRemove" data-plan="B">배경 제거</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 우측 속성 패널 -->
+    <aside id="inspector">
+      <div class="panel">
+        <h2>속성</h2>
+        <div id="inspectorBody"><p class="hint">도형을 선택하면 여기에서 이름·치수·회전·색상을 편집할 수 있습니다.</p></div>
+      </div>
+      <div class="panel">
+        <h2>면적 요약</h2>
+        <div id="areaSummary"></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- 방 비교 모달 -->
+  <div id="compareModal" class="modal" hidden>
+    <div class="modal-inner">
+      <div class="modal-head">
+        <h2>방 비교 시뮬레이션</h2>
+        <div class="modal-head-actions">
+          <button id="cmpOverlayToggle" class="btn sm">겹쳐보기: 끔</button>
+          <button id="cmpClose" class="btn sm danger">닫기</button>
+        </div>
+      </div>
+      <div class="modal-metrics" id="cmpMetrics"></div>
+      <div class="modal-body">
+        <div class="cmp-tray">
+          <h3>가구 트레이</h3>
+          <p class="hint">가구를 클릭해 아래 방에 추가한 뒤 드래그·회전으로 들어가는지 확인합니다.</p>
+          <div id="cmpFurnTray" class="furniture-list"></div>
+        </div>
+        <div class="cmp-rooms">
+          <div class="cmp-room-col">
+            <div class="cmp-room-title" id="cmpTitleA"></div>
+            <div id="cmpStageA" class="cmp-stage"></div>
+          </div>
+          <div class="cmp-room-col">
+            <div class="cmp-room-title" id="cmpTitleB"></div>
+            <div id="cmpStageB" class="cmp-stage"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OCR 결과 모달 -->
+  <div id="ocrModal" class="modal" hidden>
+    <div class="modal-inner" style="height:auto;max-height:90vh;width:min(720px,94vw)">
+      <div class="modal-head">
+        <h2>사진 치수 자동인식 (OCR)</h2>
+        <div class="modal-head-actions">
+          <label class="unit-pick">인식값 단위
+            <select id="ocrUnit">
+              <option value="mm">mm</option>
+              <option value="cm">cm</option>
+              <option value="m">m</option>
+            </select>
+          </label>
+          <button id="ocrClose" class="btn sm danger">닫기</button>
+        </div>
+      </div>
+      <div class="modal-metrics" id="ocrStatus" style="display:block">대기 중…</div>
+      <div style="padding:14px;overflow:auto">
+        <h3 style="margin:4px 0 8px;font-size:13px">인식된 치수 쌍 (가로 × 세로)</h3>
+        <div id="ocrPairs" class="ocr-pairs"></div>
+        <h3 style="margin:16px 0 8px;font-size:13px">인식된 숫자 — 두 개를 골라 방 만들기</h3>
+        <p class="hint" style="margin:0 0 8px">숫자 칩을 두 개 클릭(가로 → 세로)하면 아래 버튼이 활성화됩니다.</p>
+        <div id="ocrNumbers" class="ocr-chips"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+          <button id="ocrMakeRoom" class="btn primary" disabled>선택한 두 값으로 방 생성</button>
+          <span id="ocrPick" class="hint" style="margin:0"></span>
+        </div>
+        <p class="hint" style="margin-top:14px">※ 사진 화질·글꼴에 따라 인식 정확도가 달라집니다. 잘못 읽힌 값은 무시하고, 생성 후 속성창에서 치수를 보정해 주세요.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3D 보기 모달 -->
+  <div id="modal3d" class="modal3d" hidden>
+    <div class="v3d-top">
+      <span id="v3dTitle" class="v3d-title">🧊 3D 보기</span>
+      <label class="v3d-ctl">벽 높이(mm) <input id="v3dWallH" type="number" step="50" min="500" max="6000" value="2400" /></label>
+      <label class="v3d-ctl">벽 투명도 <input id="v3dWallOp" type="range" min="5" max="100" value="35" /></label>
+      <button id="v3dReset" class="btn sm">↺ 시작 위치로</button>
+      <button id="v3dClose" class="btn sm danger">닫기 (Esc)</button>
+    </div>
+    <div id="v3dCanvasWrap">
+      <div id="v3dHint">
+        <div class="v3d-hint-box">
+          <b>화면을 클릭하면 1인칭 시점이 시작됩니다</b><br />
+          <span>W / A / S / D 이동 · 마우스로 둘러보기 · Shift 달리기<br />
+          Space 위로 · C 아래로 · Esc 마우스 해제 (한 번 더 Esc: 닫기)</span>
+        </div>
+      </div>
+      <div id="v3dCross" hidden></div>
+    </div>
+  </div>
+
+  <!-- 토스트 -->
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="vendor/konva.min.js"></script>
+  <script src="vendor/jspdf.umd.min.js"></script>
+  <script src="vendor/three.min.js"></script>
+  <script src="app.js"></script>
+  <script src="viewer3d.js"></script>
+</body>
+</html>
