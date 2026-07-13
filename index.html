@@ -98,6 +98,7 @@
           <div id="stageA" class="stage"></div>
           <div class="bg-controls" data-plan="A" hidden>
             배경 투명도 <input type="range" class="bgOpacity" data-plan="A" min="0" max="100" value="55" />
+            <button class="btn sm primary autoRoom" data-plan="A" title="사진에서 방 구조를 자동으로 인식해 그립니다">🧭 방 자동인식</button>
             <button class="btn sm ocrBtn" data-plan="A">🔎 수치 OCR</button>
             <button class="btn sm bgRemove" data-plan="A">배경 제거</button>
           </div>
@@ -127,6 +128,7 @@
           <div id="stageB" class="stage"></div>
           <div class="bg-controls" data-plan="B" hidden>
             배경 투명도 <input type="range" class="bgOpacity" data-plan="B" min="0" max="100" value="55" />
+            <button class="btn sm primary autoRoom" data-plan="B" title="사진에서 방 구조를 자동으로 인식해 그립니다">🧭 방 자동인식</button>
             <button class="btn sm ocrBtn" data-plan="B">🔎 수치 OCR</button>
             <button class="btn sm bgRemove" data-plan="B">배경 제거</button>
           </div>
@@ -210,6 +212,37 @@
     </div>
   </div>
 
+  <!-- 방 자동인식 모달 -->
+  <div id="autoModal" class="modal" hidden>
+    <div class="modal-inner" style="height:auto;max-height:92vh;width:min(920px,96vw)">
+      <div class="modal-head">
+        <h2>🧭 도면 사진 방 자동인식</h2>
+        <div class="modal-head-actions">
+          <button id="autoReRun" class="btn sm">다시 분석</button>
+          <button id="autoClose2" class="btn sm danger">닫기</button>
+        </div>
+      </div>
+      <div class="modal-metrics" id="autoStatus" style="display:block">대기 중…</div>
+      <div class="auto-body">
+        <div class="auto-left">
+          <canvas id="autoPreview"></canvas>
+          <div class="auto-ctl">
+            <label>벽 연결 강도(문틈 메움) <span id="autoCloseVal">1.2%</span></label>
+            <input id="autoClose" type="range" min="6" max="35" value="12" />
+            <p class="hint" style="margin:4px 0 0">방들이 하나로 합쳐지면 낮추고, 방이 안 잡히면 높인 뒤 "다시 분석"을 눌러 주세요.</p>
+          </div>
+        </div>
+        <div class="auto-right">
+          <h3 style="margin:0 0 8px;font-size:13px">인식된 공간 — 생성할 방 선택</h3>
+          <div id="autoList" class="auto-list"></div>
+          <div id="autoScaleInfo" class="hint" style="margin:10px 0 8px"></div>
+          <button id="autoMake" class="btn primary full" disabled>선택한 방 생성</button>
+          <p class="hint" style="margin-top:10px">※ 인식 결과는 대략적인 사각형 근사입니다. 생성 후 속성창과 모서리 핸들로 보정해 주세요. 정확도가 낮으면 "축척보정" 후 다시 시도하면 치수가 더 정확해집니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 3D 보기 모달 -->
   <div id="modal3d" class="modal3d" hidden>
     <div class="v3d-top">
@@ -250,5 +283,6 @@
   <script src="vendor/three.min.js"></script>
   <script src="app.js"></script>
   <script src="viewer3d.js"></script>
+  <script src="autoroom.js"></script>
 </body>
 </html>

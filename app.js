@@ -1534,6 +1534,11 @@ function init() {
   document.querySelectorAll(".ocrBtn").forEach(function (b) {
     b.addEventListener("click", function () { runOCR(b.dataset.plan); });
   });
+  document.querySelectorAll(".autoRoom").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (window.openAutoRoom) window.openAutoRoom(b.dataset.plan);
+    });
+  });
   document.querySelectorAll(".bgOpacity").forEach(function (r) {
     r.addEventListener("input", function () {
       const pid = r.dataset.plan;
@@ -1588,7 +1593,9 @@ function init() {
     }
     if ((e.key === "Delete" || e.key === "Backspace") && selection.view) { e.preventDefault(); deleteSelected(); }
     if (e.key === "Escape") {
-      if (!document.getElementById("ocrModal").hidden) closeOcrModal();
+      const am = document.getElementById("autoModal");
+      if (am && !am.hidden) am.hidden = true;
+      else if (!document.getElementById("ocrModal").hidden) closeOcrModal();
       else if (!document.getElementById("compareModal").hidden) closeCompareModal();
       else if (compareMode) toggleCompareMode();
       else if (selection.view) { selection.view.deselect(); clearInspector(); }
@@ -1641,16 +1648,36 @@ function openPlanFurnChooser(planId, anchorEl) {
   }, 0);
 }
 
-/* ---------- 3D 뷰어(viewer3d.js) 연동용 최소 API ---------- */
+/* ---------- 3D 뷰어(viewer3d.js) · 방 자동인식(autoroom.js) 연동 API ---------- */
 window.APT = {
   getPlan: function (pid) { return state.plans[pid]; },
   getUnit: function () { return state.unit; },
+  getPpm: function (pid) { return views[pid] ? views[pid]._ppm : DEFAULT_PPM; },
   furnitureHeight: furnH,
   computeWarnings: computeWarnings,
   planBoundsMM: planBoundsMM,
   fmtLen: fmtLen,
   saveLocal: function () { saveLocal(); },
-  toast: toast
+  toast: toast,
+  loadTesseract: loadTesseract,
+  roomColor: roomColor,
+  // 자동인식된 방 목록을 도면에 추가. defs: [{name, wmm, hmm, xm, ym}]
+  addRooms: function (pid, defs) {
+    const p = state.plans[pid];
+    defs.forEach(function (rd, i) {
+      p.rooms.push({
+        id: uid(), name: rd.name || "방", wmm: Math.round(rd.wmm), hmm: Math.round(rd.hmm),
+        xm: rd.xm, ym: rd.ym, rot: 0, color: roomColor(p.rooms.length + i)
+      });
+    });
+    views[pid].render();
+    saveLocal();
+  },
+  // 자동 추정된 축척을 배경 사진에 반영(사진과 생성된 방이 정렬되도록)
+  setBgScale: function (pid, mmPerNativePx) {
+    const bg = state.plans[pid].bg;
+    if (bg && mmPerNativePx > 0) { bg.mmPerNativePx = mmPerNativePx; views[pid].render(); saveLocal(); }
+  }
 };
 
 document.addEventListener("DOMContentLoaded", init);
