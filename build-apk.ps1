@@ -19,7 +19,7 @@ $env:JAVA_HOME = $jdk
 # 1) 웹 자산 복사 (robocopy /MIR 로 assets/www 동기화)
 $www = Join-Path $proj "android\app\src\main\assets\www"
 New-Item -ItemType Directory -Force $www | Out-Null
-robocopy $proj $www index.html styles.css app.js viewer3d.js /NJH /NJS /NDL | Out-Null
+robocopy $proj $www index.html styles.css app.js viewer3d.js autoroom.js /NJH /NJS /NDL | Out-Null
 robocopy (Join-Path $proj "vendor") (Join-Path $www "vendor") /MIR /NJH /NJS /NDL | Out-Null
 Write-Host "웹 자산 복사 완료 → assets/www"
 
