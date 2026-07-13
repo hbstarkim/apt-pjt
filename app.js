@@ -207,6 +207,7 @@ function StageView(opts) {
   this._dragStart = null;
 
   const el = document.getElementById(this.containerId);
+  el.innerHTML = ""; // 이전/중복 캔버스 제거 — 모바일에서 캔버스가 겹쳐 잔상이 보이는 문제 방지
   this.stage = new Konva.Stage({
     container: this.containerId,
     width: Math.max(50, el.clientWidth),
@@ -460,7 +461,9 @@ StageView.prototype.renderGhost = function () {
 StageView.prototype.render = function (reselectId) {
   this.selectedGroups = [];
   this._dragStart = null;
+  if (this.tr) { try { this.tr.nodes([]); } catch (e) {} } // 파괴될 노드 참조를 먼저 해제 (모바일 재렌더 오류 방지)
   this.layer.destroyChildren();
+  this.layer.clear();  // 캔버스 명시적 클리어 — 이전 배율의 잔상 방지
   this.bgNode = null;
   if (this.data.bg && this.data.bg.src) this.renderBg();
   if (this.gridOn) this.renderGrid();
@@ -1607,6 +1610,10 @@ function init() {
   window.addEventListener("resize", function () {
     if (rt) clearTimeout(rt);
     rt = setTimeout(function () { views.A.resize(); views.B.resize(); }, 150);
+  });
+  // 모바일 bfcache(뒤로가기 캐시) 복원 시 캔버스 강제 재생성 — 잔상 방지
+  window.addEventListener("pageshow", function (e) {
+    if (e.persisted) { views.A.resize(); views.B.resize(); }
   });
 
   // 초기 렌더
