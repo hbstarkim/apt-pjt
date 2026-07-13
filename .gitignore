@@ -1,0 +1,7 @@
+# Android 빌드 산출물
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+# 웹 자산은 빌드 시 build-apk.ps1 이 복사 (원본은 저장소 루트)
+android/app/src/main/assets/

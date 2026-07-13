@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>아파트 평면도 비교 · 가구 배치 시뮬레이터</title>
 <link rel="stylesheet" href="styles.css" />
 </head>
@@ -10,8 +10,9 @@
   <!-- 상단 바 -->
   <header id="topbar">
     <div class="brand">
+      <button id="btnDrawerLib" class="btn sm mob-only">☰ 가구</button>
       <span class="logo">🏠</span>
-      <span>아파트 평면도 비교 · 가구 배치 시뮬레이터</span>
+      <span class="brand-title">아파트 평면도 비교 · 가구 배치 시뮬레이터</span>
     </div>
     <div class="top-actions">
       <label class="unit-pick">
@@ -30,6 +31,7 @@
       <button id="btnExport" class="btn" title="현재 작업을 JSON 파일로 저장">⬇ JSON 저장</button>
       <button id="btnImport" class="btn" title="저장해 둔 JSON 프로젝트 불러오기 (이미지 아님)">⬆ JSON 열기</button>
       <button id="btnReset" class="btn danger">초기화</button>
+      <button id="btnDrawerIns" class="btn sm mob-only">⚙ 속성</button>
       <input type="file" id="importFile" accept="application/json" hidden />
     </div>
   </header>
@@ -225,7 +227,18 @@
           Space 위로 · C 아래로 · Esc 마우스 해제 (한 번 더 Esc: 닫기)</span>
         </div>
       </div>
+      <div id="v3dHintTouch" hidden>
+        <div class="v3d-hint-box">
+          <b>왼쪽 화면: 가상 조이스틱으로 이동</b><br />
+          <span>오른쪽 화면 드래그: 시점 회전 · 우측 하단 버튼: 위/아래</span>
+        </div>
+      </div>
       <div id="v3dCross" hidden></div>
+      <div id="v3dJoy" hidden><div id="v3dJoyKnob"></div></div>
+      <div class="v3d-updown">
+        <button id="v3dUp" type="button">▲</button>
+        <button id="v3dDown" type="button">▼</button>
+      </div>
     </div>
   </div>
 

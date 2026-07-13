@@ -1124,10 +1124,15 @@ function loadLocal() {
 }
 
 function exportJSON() {
+  const name = "아파트도면_" + dateStamp() + ".json";
+  if (window.AndroidBridge) {
+    downloadDataUrl("data:application/json;base64," + b64EncodeUtf8(serialize()), name);
+    return;
+  }
   const blob = new Blob([serialize()], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = "아파트도면_" + dateStamp() + ".json";
+  a.href = url; a.download = name;
   a.click();
   setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
 }
@@ -1193,8 +1198,16 @@ function nowStr() {
   return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
 }
 function downloadDataUrl(url, name) {
+  // 안드로이드 앱(WebView)에서는 네이티브 브리지로 '다운로드' 폴더에 저장
+  if (window.AndroidBridge && url.indexOf("data:") === 0) {
+    window.AndroidBridge.saveBase64DataUrl(url, name);
+    return;
+  }
   const a = document.createElement("a");
   a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+function b64EncodeUtf8(s) {
+  return btoa(unescape(encodeURIComponent(s)));
 }
 
 /* ============================================================
@@ -1304,7 +1317,9 @@ function exportPDF() {
     let iw = pw - 36, ih = iw / ar;
     if (ih > ph - 36) { ih = ph - 36; iw = ih * ar; }
     pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", (pw - iw) / 2, (ph - ih) / 2, iw, ih);
-    pdf.save("배치도_" + dateStamp() + ".pdf");
+    const pdfName = "배치도_" + dateStamp() + ".pdf";
+    if (window.AndroidBridge) downloadDataUrl(pdf.output("datauristring"), pdfName);
+    else pdf.save(pdfName);
     toast("PDF로 저장했습니다.");
   } catch (e) { toast("PDF 생성 실패: " + e.message); }
 }
@@ -1446,6 +1461,26 @@ function seedDemo() {
 }
 
 function init() {
+  // 터치 기기(모바일/태블릿) 감지 → 3D 터치 조작·모바일 UI 활성화
+  if ("ontouchstart" in window || (navigator.maxTouchPoints || 0) > 0) {
+    document.body.classList.add("touchdev");
+  }
+  // 모바일 드로어 토글 (좁은 화면에서 가구 라이브러리/속성 패널)
+  const dLib = document.getElementById("btnDrawerLib");
+  const dIns = document.getElementById("btnDrawerIns");
+  if (dLib) dLib.addEventListener("click", function () {
+    document.body.classList.toggle("drawer-lib");
+    document.body.classList.remove("drawer-ins");
+  });
+  if (dIns) dIns.addEventListener("click", function () {
+    document.body.classList.toggle("drawer-ins");
+    document.body.classList.remove("drawer-lib");
+  });
+  // 드로어 밖(도면) 터치 시 드로어 닫기
+  document.getElementById("plans").addEventListener("pointerdown", function () {
+    document.body.classList.remove("drawer-lib", "drawer-ins");
+  });
+
   const loaded = loadLocal();
   state.furnitureLib = mergeIntoCatalog(state.furnitureLib); // 영구 카탈로그와 동기화
   if (!loaded && /[?&]demo/.test(location.search)) seedDemo();

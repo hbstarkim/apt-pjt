@@ -17,6 +17,11 @@ const keys = {};
 let wallMats = [];          // 벽 재질 (투명도 일괄 조절용)
 let wallOp = 35;            // 벽 투명도 %
 const EYE = 1.6;            // 눈높이 (m)
+// 터치 조작 상태 (모바일)
+let joyT = null;            // 조이스틱 터치 { id, ox, oy }
+let lookT = null;           // 시점 터치 { id, x, y }
+let tvec = { x: 0, y: 0 };  // 조이스틱 벡터 (-1..1) x=좌우, y=앞뒤(+앞)
+function isTouchDev() { return document.body.classList.contains("touchdev"); }
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 function el(id) { return document.getElementById(id); }
@@ -233,8 +238,10 @@ window.open3DView = function (pid) {
   sizeRenderer();
 
   opened = true;
-  el("v3dHint").hidden = false;
+  el("v3dHint").hidden = isTouchDev();
+  el("v3dHintTouch").hidden = !isTouchDev();
   el("v3dCross").hidden = true;
+  joyT = null; lookT = null; tvec = { x: 0, y: 0 };
   prevT = 0;
   if (rafId) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(tick);
@@ -246,6 +253,8 @@ window.close3DView = function () {
   if (document.pointerLockElement) document.exitPointerLock();
   if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
   for (const k in keys) keys[k] = false;
+  joyT = null; lookT = null; tvec = { x: 0, y: 0 };
+  el("v3dJoy").hidden = true;
   disposeScene();
   el("modal3d").hidden = true;
 };
@@ -274,6 +283,15 @@ function tick(t) {
     const sy = Math.sin(yaw), cy = Math.cos(yaw);
     camera.position.x += ((fz * -sy) + (fx * cy)) / len * sp;
     camera.position.z += ((fz * -cy) + (fx * -sy)) / len * sp;
+  }
+  // 가상 조이스틱(터치) 이동 — 기울인 정도에 비례, 끝까지 밀면 달리기
+  if (tvec.x || tvec.y) {
+    const mag = Math.min(1, Math.hypot(tvec.x, tvec.y));
+    const tsp = 2.0 * dt * mag * (mag > 0.92 ? 2.2 : 1);
+    const sy2 = Math.sin(yaw), cy2 = Math.cos(yaw);
+    const jx = tvec.x, jz = tvec.y;
+    camera.position.x += ((jz * -sy2) + (jx * cy2)) * tsp;
+    camera.position.z += ((jz * -cy2) + (jx * -sy2)) * tsp;
   }
   if (fy) camera.position.y = clamp(camera.position.y + fy * sp, 0.25, 40);
 
@@ -316,9 +334,76 @@ window.addEventListener("resize", function () {
 /* ---------- HUD 바인딩 ---------- */
 document.addEventListener("DOMContentLoaded", function () {
   el("v3dCanvasWrap").addEventListener("click", function () {
-    if (!opened || locked || !renderer) return;
+    if (!opened || locked || !renderer || isTouchDev()) return;
     renderer.domElement.requestPointerLock();
   });
+
+  // ----- 터치 조작: 왼쪽 절반 = 가상 조이스틱(이동), 나머지 = 시점 드래그 -----
+  const wrap = el("v3dCanvasWrap");
+  const JOY_R = 55; // 조이스틱 반경(px)
+  wrap.addEventListener("touchstart", function (e) {
+    if (!opened) return;
+    el("v3dHintTouch").hidden = true;
+    const rect = wrap.getBoundingClientRect();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.target && t.target.closest && t.target.closest(".v3d-updown")) continue; // 버튼은 통과
+      const lx = t.clientX - rect.left;
+      if (!joyT && lx < rect.width * 0.45) {
+        joyT = { id: t.identifier, ox: t.clientX, oy: t.clientY };
+        const joy = el("v3dJoy");
+        joy.hidden = false;
+        joy.style.left = lx + "px";
+        joy.style.top = (t.clientY - rect.top) + "px";
+        el("v3dJoyKnob").style.transform = "translate(-50%, -50%)";
+      } else if (!lookT) {
+        lookT = { id: t.identifier, x: t.clientX, y: t.clientY };
+      }
+    }
+    e.preventDefault();
+  }, { passive: false });
+  wrap.addEventListener("touchmove", function (e) {
+    if (!opened) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (joyT && t.identifier === joyT.id) {
+        let dx = t.clientX - joyT.ox, dy = t.clientY - joyT.oy;
+        const d = Math.hypot(dx, dy);
+        if (d > JOY_R) { dx = dx / d * JOY_R; dy = dy / d * JOY_R; }
+        tvec.x = dx / JOY_R;
+        tvec.y = -dy / JOY_R;   // 위로 밀면 전진
+        el("v3dJoyKnob").style.transform = "translate(calc(-50% + " + dx + "px), calc(-50% + " + dy + "px))";
+      } else if (lookT && t.identifier === lookT.id) {
+        yaw -= (t.clientX - lookT.x) * 0.005;
+        pitch = clamp(pitch - (t.clientY - lookT.y) * 0.005, -1.55, 1.55);
+        lookT.x = t.clientX; lookT.y = t.clientY;
+      }
+    }
+    e.preventDefault();
+  }, { passive: false });
+  const endTouch = function (e) {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (joyT && t.identifier === joyT.id) {
+        joyT = null; tvec.x = 0; tvec.y = 0;
+        el("v3dJoy").hidden = true;
+      } else if (lookT && t.identifier === lookT.id) {
+        lookT = null;
+      }
+    }
+  };
+  wrap.addEventListener("touchend", endTouch);
+  wrap.addEventListener("touchcancel", endTouch);
+
+  // 상승/하강 버튼 (터치 기기 전용 표시)
+  const hold = function (btnId, code) {
+    const b = el(btnId);
+    b.addEventListener("touchstart", function (e) { keys[code] = true; e.preventDefault(); }, { passive: false });
+    b.addEventListener("touchend", function () { keys[code] = false; });
+    b.addEventListener("touchcancel", function () { keys[code] = false; });
+  };
+  hold("v3dUp", "Space");
+  hold("v3dDown", "KeyC");
   el("v3dClose").addEventListener("click", function () { window.close3DView(); });
   el("v3dReset").addEventListener("click", function () { resetCamera(); });
   el("v3dWallH").addEventListener("change", function () {
