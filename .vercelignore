@@ -1,0 +1,7 @@
+# 로컬 실행 전용 — Vercel이 server.js를 서버리스 함수로 오인하지 않도록 제외
+server.js
+start.ps1
+
+# 안드로이드 APK 빌드 관련 (웹 배포에 불필요)
+android/
+build-apk.ps1
